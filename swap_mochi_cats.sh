@@ -18,7 +18,7 @@ download_sticker_pack() {
   local urls filenames
 
   urls=$(curl "https://www.sigstick.com/pack/$id" |
-    grep -Eo "\"url\":\"https://storage.googleapis.com/sticker-prod/$id/[^\"]+\.png\"" |
+    grep -Eo "\"url\":\"https://storage.googleapis.com/sticker-prod/$id/[^\"]+\.(png|webp)\"" |
     sed 's|"url":"||g' |
     tr -d '"' |
     grep -v cover)
@@ -31,11 +31,21 @@ download_sticker_pack() {
 process_sticker() {
   local sticker="$1"
   local name
+  local ext
 
-  name=$(basename "$sticker" .png)
+  name=${sticker%.*}
+  ext=${sticker##*.}
 
-  # Create folder and extract frames for each apng
-  apngasm -o "$name" -D "$sticker"
+  # Extract frames into a child folder, depending on extension
+  if [ "$ext" = "png" ]; then
+    # apng -> png
+    apngasm -o "$name" -D "$sticker"
+  elif [ "$ext" = "webp" ]; then
+    # webp -> png
+    mkdir "$name"
+    anim_dump -folder "$name" -prefix "" "$sticker"
+  fi
+
   rm "$sticker"
   for f in "$name"/*.png; do
     mv "$f" "$name"/$(basename "$f" ".png" | xargs printf "%05d").png
